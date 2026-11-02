@@ -1,0 +1,11 @@
+{
+  "name": "SmartClass AI",
+  "description": "Premium Augmented Classroom with Realistic AI Avatar Teacher, 3D simulations, and adaptive tutoring.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
