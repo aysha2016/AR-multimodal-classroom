@@ -145,7 +145,21 @@ class AvatarAudioEngine {
   }
 
   /**
+   * Checks whether the app is running on a static hosting environment (e.g. GitHub Pages)
+   */
+  public isStaticHost(): boolean {
+    if (typeof window === 'undefined') return false;
+    const host = window.location.hostname;
+    return (
+      host.includes('github.io') ||
+      host.includes('gitlab.io') ||
+      window.location.protocol === 'file:'
+    );
+  }
+
+  /**
    * Unlocks audio playback for browsers requiring an explicit user gesture.
+   * Primes both the Web Audio context and browser SpeechSynthesis engine.
    */
   public unlockAudio(): void {
     this.isAudioUnlocked = true;
@@ -163,6 +177,13 @@ class AvatarAudioEngine {
         if (window.speechSynthesis.paused) {
           window.speechSynthesis.resume();
         }
+        // Prime the browser SpeechSynthesis engine with a silent micro-utterance
+        // to establish user activation in Chromium / WebKit
+        const primer = new SpeechSynthesisUtterance(' ');
+        primer.volume = 0.01;
+        primer.rate = 10.0;
+        primer.lang = 'en-US';
+        window.speechSynthesis.speak(primer);
       } catch (e) {
         // ignore
       }
@@ -308,11 +329,11 @@ class AvatarAudioEngine {
   }
 
   /**
-   * Pre-fetches and caches lesson audio in memory so that when playback begins or
-   * chapters are clicked, spoken teacher audio starts with 0ms latency.
+   * Pre-fetches and caches lesson audio in memory when backend TTS is active.
+   * Completely skips network requests on static environments (like GitHub Pages).
    */
   public preloadLessonAudio(texts: string[], voiceName: string = 'Kore'): void {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || this.isStaticHost() || this.backendTtsDisabled) return;
     for (const text of texts) {
       if (text && text.trim().length > 0) {
         this.fetchAudioBuffer(text, voiceName).catch(() => {});
@@ -321,10 +342,13 @@ class AvatarAudioEngine {
   }
 
   /**
-   * Fetches TTS audio from /api/tts (real MP3 speech audio generated on the server)
-   * and decodes it into AudioBuffer for real-time FFT spectrum lip synchronization.
+   * Fetches TTS audio from /api/tts when available, falling back gracefully to client speech.
    */
   public async fetchAudioBuffer(text: string, voiceName: string = 'Kore'): Promise<AudioBuffer | null> {
+    if (this.isStaticHost() || this.backendTtsDisabled) {
+      return null;
+    }
+
     const cleanText = text.replace(/[*#_`]/g, '').trim();
     if (!cleanText) return null;
 
@@ -339,6 +363,9 @@ class AvatarAudioEngine {
 
     const fetchPromise = (async () => {
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3500);
+
         const response = await fetch('/api/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -346,14 +373,20 @@ class AvatarAudioEngine {
             text: cleanText.slice(0, 480),
             voiceName: voiceName || 'Kore',
           }),
+          signal: controller.signal,
         });
 
+        clearTimeout(timeoutId);
+
         if (!response.ok) {
+          // If server /api/tts 404s or fails, permanently switch to client speech for this session
+          this.backendTtsDisabled = true;
           return null;
         }
 
         const data = await response.json();
-        if (!data.audioBase64) {
+        if (data.useClientTts || !data.audioBase64) {
+          this.backendTtsDisabled = true;
           return null;
         }
 
@@ -377,13 +410,13 @@ class AvatarAudioEngine {
             this.audioBufferCache.set(cacheKey, audioBuffer);
             return audioBuffer;
           } catch (decodeErr) {
-            console.warn('decodeAudioData error, will use HTMLAudio fallback:', decodeErr);
             return null;
           }
         }
         return null;
       } catch (err) {
-        console.warn('Error fetching TTS audio:', err);
+        // Network failure, timeout, or static 404
+        this.backendTtsDisabled = true;
         return null;
       } finally {
         this.pendingFetches.delete(cacheKey);
@@ -396,14 +429,14 @@ class AvatarAudioEngine {
 
   /**
    * Primary speech pipeline:
-   * Guarantees loud, audible human voice playback for every avatar and lesson model.
+   * Guarantees loud, audible human voice playback for every avatar and lesson model across
+   * both static hosting (GitHub Pages) and full-stack environments.
    * Priority:
-   * 1. In-memory AudioBuffer / Blob URL (instantaneous, 0ms latency)
-   * 2. High-quality server-rendered MP3 voice from /api/tts with real acoustic FFT formants
-   * 3. Web Speech API with native English voices (client-side fallback)
-   * 4. Web Audio Acoustic Vocal Formant Synthesizer (hardware audio safety net)
+   * 1. In-memory AudioBuffer / Blob URL if pre-cached
+   * 2. Synchronous high-clarity Web Speech API (0ms latency, runs inside user gesture)
+   * 3. Web Audio Acoustic Vocal Formant Synthesizer (hardware audio safety net)
    */
-  public async speak(text: string, voiceName: string = 'Kore'): Promise<void> {
+  public speak(text: string, voiceName: string = 'Kore'): void {
     this.stop();
     this.currentSpeakingText = text;
     this.currentVoiceName = voiceName;
@@ -423,14 +456,14 @@ class AvatarAudioEngine {
 
     const cacheKey = `${voiceName}:${cleanText}`;
 
-    // 1. Immediate in-memory cached AudioBuffer playback
+    // 1. Immediate in-memory cached AudioBuffer playback if ready
     if (this.audioBufferCache.has(cacheKey)) {
       const buffer = this.audioBufferCache.get(cacheKey)!;
       this.playAudioBuffer(buffer, cleanText);
       return;
     }
 
-    // 2. Immediate in-memory cached Blob URL playback
+    // 2. Immediate in-memory cached Blob URL playback if ready
     if (this.audioUrlCache.has(cacheKey)) {
       const url = this.audioUrlCache.get(cacheKey)!;
       this.playAudioUrl(url, cleanText);
@@ -444,163 +477,174 @@ class AvatarAudioEngine {
       voiceName.toLowerCase().includes('marcus') ||
       voiceName.toLowerCase().includes('alan');
 
-    // 3. Fetch real MP3 speech audio from backend /api/tts
-    this.setState('speaking');
-    this.startSyntheticVisemeLoop(cleanText);
-
-    try {
-      const buffer = await this.fetchAudioBuffer(cleanText, voiceName);
-      if (this.currentSpeakingText !== text) return;
-
-      if (buffer) {
-        this.playAudioBuffer(buffer, cleanText);
-        return;
-      }
-      if (this.audioUrlCache.has(cacheKey)) {
-        this.playAudioUrl(this.audioUrlCache.get(cacheKey)!, cleanText);
-        return;
-      }
-    } catch (err) {
-      console.warn('Backend audio fetch failed, falling back:', err);
-    }
-
-    // 4. Fallback to Web Speech or acoustic tone
+    // 3. Native client Web Speech API:
+    // Called SYNCHRONOUSLY within the user gesture to guarantee audio permissions on mobile & desktop browsers!
     this.playBrowserSpeech(cleanText, voiceName, isMale);
+
+    // If backend TTS might be supported, fetch in background for future cache
+    if (!this.isStaticHost() && !this.backendTtsDisabled) {
+      this.fetchAudioBuffer(cleanText, voiceName).catch(() => {});
+    }
   }
 
   /**
-   * High-reliability Web Speech API playback with exact phonetic lip synchronization.
+   * High-reliability Web Speech API playback with sentence chunking & exact phonetic lip sync.
+   * Called synchronously to preserve browser user activation tokens.
    */
   private playBrowserSpeech(text: string, voiceName: string, isMale: boolean) {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    if (typeof window === 'undefined') return;
+
+    // Awaken Web Audio context
+    this.initAudioContext();
+    if (this.audioCtx && this.audioCtx.state === 'suspended') {
+      this.audioCtx.resume().catch(() => {});
+    }
+
+    if (!('speechSynthesis' in window)) {
       this.playAcousticSpeechFallback(text, isMale);
       return;
     }
 
     try {
-      // Chromium bugfix: cancel previous utterance, wait 30ms before queuing next speak
+      // Chromium bugfix: cancel any hung or queued utterance
       window.speechSynthesis.cancel();
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
 
-      setTimeout(() => {
-        try {
-          if (this.isMuted || this.currentSpeakingText !== text) return;
+      // Sentence chunking prevents Chrome's 14-second cutoff bug and ensures natural cadence
+      const rawSentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
+      const sentences = rawSentences.map((s) => s.trim()).filter(Boolean);
+      if (sentences.length === 0) {
+        this.setState('idle');
+        return;
+      }
 
-          window.speechSynthesis.resume();
+      let currentSentenceIdx = 0;
 
-          const utterance = new SpeechSynthesisUtterance(text);
-          this.activeUtterance = utterance;
-          (window as any).__smartClassActiveUtterance = utterance;
+      const speakSentence = () => {
+        if (this.isMuted || this.currentSpeakingText !== text) {
+          this.stop();
+          return;
+        }
 
-          // Vocal properties tailored to avatar persona
-          utterance.volume = 1.0;
-          utterance.rate = 1.0;
-          utterance.pitch = isMale ? 0.92 : 1.06;
+        if (currentSentenceIdx >= sentences.length) {
+          if (this.speechHeartbeatTimer) {
+            clearInterval(this.speechHeartbeatTimer);
+            this.speechHeartbeatTimer = null;
+          }
+          this.activeUtterance = null;
+          (window as any).__smartClassActiveUtterance = null;
+          this.stopAnalysisLoop();
+          this.setState('idle');
+          return;
+        }
 
-          // Resolve best matching native voice
-          const voices =
-            this.cachedVoices.length > 0 ? this.cachedVoices : window.speechSynthesis.getVoices();
+        const sentenceText = sentences[currentSentenceIdx];
+        const utterance = new SpeechSynthesisUtterance(sentenceText);
+        this.activeUtterance = utterance;
+        (window as any).__smartClassActiveUtterance = utterance;
 
-          if (voices && voices.length > 0) {
-            let matchedVoice: SpeechSynthesisVoice | undefined;
+        // Natural educator voice dynamics
+        utterance.volume = 1.0;
+        utterance.rate = 0.98;
+        utterance.pitch = isMale ? 0.92 : 1.08;
+        utterance.lang = 'en-US';
 
-            if (isMale) {
-              matchedVoice = voices.find(
-                (v) =>
-                  v.lang.startsWith('en') &&
-                  (v.name.includes('Male') ||
-                    v.name.includes('David') ||
-                    v.name.includes('Daniel') ||
-                    v.name.includes('Guy') ||
-                    v.name.includes('Alex') ||
-                    v.name.includes('George'))
-              );
-            } else {
-              matchedVoice = voices.find(
-                (v) =>
-                  v.lang.startsWith('en') &&
-                  (v.name.includes('Natural') ||
-                    v.name.includes('Google US English') ||
-                    v.name.includes('Samantha') ||
-                    v.name.includes('Zira') ||
-                    v.name.includes('Victoria') ||
-                    v.name.includes('Karen') ||
-                    v.name.includes('Ava') ||
-                    v.name.includes('Jenny') ||
-                    v.name.includes('Female'))
-              );
-            }
+        // Match best available native voice
+        const voices =
+          this.cachedVoices.length > 0 ? this.cachedVoices : window.speechSynthesis.getVoices();
 
-            if (!matchedVoice) {
-              matchedVoice = voices.find((v) => v.lang.startsWith('en')) || voices[0];
-            }
+        if (voices && voices.length > 0) {
+          let matchedVoice: SpeechSynthesisVoice | undefined;
 
-            if (matchedVoice) {
-              utterance.voice = matchedVoice;
-            }
+          if (isMale) {
+            matchedVoice = voices.find(
+              (v) =>
+                v.lang.startsWith('en') &&
+                (v.name.includes('Male') ||
+                  v.name.includes('David') ||
+                  v.name.includes('Daniel') ||
+                  v.name.includes('Guy') ||
+                  v.name.includes('Alex') ||
+                  v.name.includes('George') ||
+                  v.name.includes('Natural'))
+            );
+          } else {
+            matchedVoice = voices.find(
+              (v) =>
+                v.lang.startsWith('en') &&
+                (v.name.includes('Natural') ||
+                  v.name.includes('Google US English') ||
+                  v.name.includes('Samantha') ||
+                  v.name.includes('Zira') ||
+                  v.name.includes('Victoria') ||
+                  v.name.includes('Karen') ||
+                  v.name.includes('Ava') ||
+                  v.name.includes('Jenny') ||
+                  v.name.includes('Female'))
+            );
           }
 
-          utterance.onstart = () => {
-            this.setState('speaking');
-            this.startSyntheticVisemeLoop(text);
+          if (!matchedVoice) {
+            matchedVoice = voices.find((v) => v.lang.startsWith('en')) || voices[0];
+          }
 
-            // Chrome heartbeat: unfreeze speech if longer than 15s
-            if (this.speechHeartbeatTimer) clearInterval(this.speechHeartbeatTimer);
-            this.speechHeartbeatTimer = setInterval(() => {
-              if (typeof window !== 'undefined' && window.speechSynthesis.speaking) {
-                window.speechSynthesis.pause();
-                window.speechSynthesis.resume();
-              }
-            }, 6000);
-          };
-
-          // On word boundary, synchronize mouth shapes to actual syllables
-          utterance.onboundary = (e: SpeechSynthesisEvent) => {
-            if (e.name === 'word' || !e.name) {
-              const charIdx = e.charIndex || 0;
-              const remaining = text.slice(charIdx);
-              const currentWord = remaining.split(/\s+/)[0] || '';
-              this.applyWordViseme(currentWord);
-            }
-          };
-
-          utterance.onend = () => {
-            if (this.speechHeartbeatTimer) {
-              clearInterval(this.speechHeartbeatTimer);
-              this.speechHeartbeatTimer = null;
-            }
-            this.activeUtterance = null;
-            (window as any).__smartClassActiveUtterance = null;
-            this.stopAnalysisLoop();
-            this.setState('idle');
-          };
-
-          utterance.onerror = (e) => {
-            if (e.error !== 'interrupted' && e.error !== 'canceled') {
-              console.warn('Speech synthesis error, transitioning to acoustic voice fallback:', e.error);
-              this.playAcousticSpeechFallback(text, isMale);
-            }
-            if (this.speechHeartbeatTimer) {
-              clearInterval(this.speechHeartbeatTimer);
-              this.speechHeartbeatTimer = null;
-            }
-            this.activeUtterance = null;
-            (window as any).__smartClassActiveUtterance = null;
-          };
-
-          window.speechSynthesis.speak(utterance);
-
-          // Additional safety resume call for Safari
-          setTimeout(() => {
-            if (typeof window !== 'undefined' && window.speechSynthesis.paused) {
-              window.speechSynthesis.resume();
-            }
-          }, 60);
-        } catch (innerErr) {
-          console.warn('SpeechSynthesis invocation error:', innerErr);
-          this.playAcousticSpeechFallback(text, isMale);
+          if (matchedVoice) {
+            utterance.voice = matchedVoice;
+          }
         }
-      }, 30);
+
+        utterance.onstart = () => {
+          this.setState('speaking');
+          this.startSyntheticVisemeLoop(sentenceText);
+        };
+
+        // Real-time mouth shaping on each spoken word
+        utterance.onboundary = (e: SpeechSynthesisEvent) => {
+          if (e.name === 'word' || !e.name) {
+            const charIdx = e.charIndex || 0;
+            const remaining = sentenceText.slice(charIdx);
+            const currentWord = remaining.split(/\s+/)[0] || '';
+            this.applyWordViseme(currentWord);
+          }
+        };
+
+        utterance.onend = () => {
+          currentSentenceIdx++;
+          speakSentence();
+        };
+
+        utterance.onerror = (e) => {
+          if (e.error !== 'interrupted' && e.error !== 'canceled') {
+            console.warn('Speech synthesis error, falling back to acoustic tone:', e.error);
+            this.playAcousticSpeechFallback(sentenceText, isMale);
+          }
+        };
+
+        // Immediate synchronous invocation within user gesture call stack
+        window.speechSynthesis.speak(utterance);
+
+        // Safari & mobile Chrome safety unpause
+        setTimeout(() => {
+          if (typeof window !== 'undefined' && window.speechSynthesis.paused) {
+            window.speechSynthesis.resume();
+          }
+        }, 50);
+      };
+
+      // Heartbeat unfreeze timer for Chrome
+      if (this.speechHeartbeatTimer) clearInterval(this.speechHeartbeatTimer);
+      this.speechHeartbeatTimer = setInterval(() => {
+        if (typeof window !== 'undefined' && window.speechSynthesis.speaking) {
+          window.speechSynthesis.pause();
+          window.speechSynthesis.resume();
+        }
+      }, 4000);
+
+      speakSentence();
     } catch (err) {
+      console.warn('SpeechSynthesis error:', err);
       this.playAcousticSpeechFallback(text, isMale);
     }
   }
@@ -855,10 +899,10 @@ class AvatarAudioEngine {
    * 1. Plays a warm, audible 3-tone pedagogical chime (C5 -> E5 -> G5)
    * 2. Follows with clear teacher speech in the active avatar's voice.
    */
-  public async testSound(voiceName: string = 'Kore'): Promise<void> {
+  public testSound(voiceName: string = 'Kore'): void {
     this.unlockAudio();
     // 1. Play audible 3-tone chime immediately
-    this.playActivationChime([523.25, 659.25, 783.99], 0.35);
+    this.playActivationChime([523.25, 659.25, 783.99], 0.25);
 
     // 2. Teacher speaks clearly
     setTimeout(() => {
@@ -866,7 +910,7 @@ class AvatarAudioEngine {
         'Welcome to SmartClass AI! Educator audio and real-time lip sync are working perfectly for your lesson.',
         voiceName
       );
-    }, 420);
+    }, 280);
   }
 
   /**

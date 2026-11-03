@@ -9,7 +9,9 @@ import {
   ShieldCheck,
   Menu,
   X,
+  Volume2,
 } from 'lucide-react';
+import { avatarAudioEngine } from '../../services/avatarAudioEngine';
 
 interface TopNavBarProps {
   profile: StudentProfile;
@@ -88,6 +90,19 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
 
       {/* Right Controls */}
       <div className="flex items-center gap-2 sm:gap-4">
+        {/* Quick Voice Sound Test */}
+        <button
+          onClick={() => {
+            avatarAudioEngine.testSound();
+          }}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold transition-all shadow-xs active:scale-95 cursor-pointer"
+          title="Test Teacher Audio & Speech Output"
+        >
+          <Volume2 className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
+          <span className="hidden sm:inline">Voice Audio</span>
+          <span className="sm:hidden">Voice</span>
+        </button>
+
         {/* Language Selector Dropdown */}
         <div className="relative">
           <button

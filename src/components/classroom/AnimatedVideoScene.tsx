@@ -1027,19 +1027,20 @@ export const AnimatedVideoScene: React.FC<AnimatedVideoSceneProps> = ({
 
       {/* 2.5 TAP TO UNMUTE PROMPT BANNER (Displayed until first student gesture unlocks browser audio) */}
       {!isAudioUnlocked && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
           <button
             onClick={() => {
               avatarAudioEngine.unlockAudio();
+              setIsPlaying(true);
               const activeCh = chapters.find((c) => c.id === activeChapterId) || chapters[0];
               const textToSpeak = speechText && speechText.length > 20 ? speechText : (activeCh ? activeCh.description : 'Welcome to the lesson!');
               avatarAudioEngine.speak(textToSpeak, currentTeacher.voiceName);
             }}
-            className="flex items-center gap-2.5 px-4 py-2 bg-blue-600/95 hover:bg-blue-500 text-white rounded-full shadow-2xl backdrop-blur-md border border-white/20 text-xs font-semibold tracking-wide transition-all hover:scale-105 active:scale-95 cursor-pointer ring-4 ring-blue-500/30 animate-pulse"
+            className="flex items-center gap-2.5 px-5 py-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 hover:from-blue-500 hover:to-indigo-500 text-white rounded-full shadow-2xl backdrop-blur-md border border-white/30 text-xs sm:text-sm font-bold tracking-wide transition-all hover:scale-105 active:scale-95 cursor-pointer ring-4 ring-blue-500/40 animate-pulse"
             title="Click to enable educator voice narration"
           >
-            <Volume2 className="w-4 h-4 text-cyan-300 animate-bounce" />
-            <span>Click to Enable Teacher Audio</span>
+            <Volume2 className="w-5 h-5 text-cyan-200 animate-bounce" />
+            <span>Click to Enable Teacher Audio & Speech</span>
           </button>
         </div>
       )}
@@ -1274,10 +1275,10 @@ export const AnimatedVideoScene: React.FC<AnimatedVideoSceneProps> = ({
             avatarAudioEngine.testSound(currentTeacher.voiceName);
           }}
           title="Verify speaker sound output"
-          className="hidden xs:flex px-2 py-1.5 rounded-xl bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200/80 items-center gap-1 shrink-0 text-[11px] font-semibold transition-all cursor-pointer"
+          className="flex px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200/80 items-center gap-1.5 shrink-0 text-[11px] font-semibold transition-all cursor-pointer shadow-xs active:scale-95"
         >
-          <Sparkles className="w-3 h-3 text-amber-500" />
-          <span>Test Sound</span>
+          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+          <span>Test Voice</span>
         </button>
 
         {/* Live Audio & Lip Articulation Waveforms */}
@@ -1374,9 +1375,18 @@ export const AnimatedVideoScene: React.FC<AnimatedVideoSceneProps> = ({
           <div className="flex items-center gap-2.5">
             <button
               onClick={() => {
+                avatarAudioEngine.unlockAudio();
+                if (!isAudioUnlocked) {
+                  // If browser audio was blocked by autoplay, unlock it and play audio immediately
+                  setIsPlaying(true);
+                  if (isPlayingNarration) {
+                    const activeCh = chapters.find((c) => c.id === activeChapterId) || chapters[0];
+                    avatarAudioEngine.speak(activeCh.description, currentTeacher.voiceName);
+                  }
+                  return;
+                }
                 const nextPlaying = !isPlaying;
                 setIsPlaying(nextPlaying);
-                avatarAudioEngine.unlockAudio();
                 if (nextPlaying && isPlayingNarration) {
                   const activeCh = chapters.find((c) => c.id === activeChapterId) || chapters[0];
                   avatarAudioEngine.speak(activeCh.description, currentTeacher.voiceName);

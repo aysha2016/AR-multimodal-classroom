@@ -247,14 +247,23 @@ app.post('/api/tts', async (req, res) => {
       }
     }
 
-    // Universal reliable high-quality speech generation
-    const speech = await generateSpeechAudio(text, voiceName);
-    return res.json(speech);
+    // Universal speech generation with client-side fallback
+    try {
+      const speech = await generateSpeechAudio(text, voiceName);
+      return res.json(speech);
+    } catch (speechErr: any) {
+      return res.json({
+        audioBase64: null,
+        useClientTts: true,
+        message: 'Client-side speech synthesis recommended',
+      });
+    }
   } catch (err: any) {
     console.error('Error in /api/tts:', err);
-    return res.status(500).json({
+    return res.json({
+      audioBase64: null,
+      useClientTts: true,
       error: 'TTS generation failed',
-      details: err?.message || String(err),
     });
   }
 });
