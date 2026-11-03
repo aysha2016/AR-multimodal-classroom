@@ -168,7 +168,7 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
         <div className="relative flex items-center gap-2.5 pl-2 border-l border-slate-200">
           <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 ring-1 ring-slate-200 shrink-0">
             <img
-              src="/assets/prototype/student-avatar.png"
+              src="./assets/prototype/student-avatar.png"
               alt={profile.name}
               className="w-full h-full object-cover"
               onError={(e) => {

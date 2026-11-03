@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 
 import fs from 'fs';
+import { execSync } from 'child_process';
 
 dotenv.config();
 
@@ -268,10 +269,38 @@ app.get('/api/health', (req, res) => {
 });
 
 async function startServer() {
-  const isProduction = process.env.NODE_ENV === 'production';
-  const hasDist = fs.existsSync(path.resolve(process.cwd(), 'dist', 'index.html'));
+  const isExplicitDev = process.env.NODE_ENV === 'development';
+  const isProduction = process.env.NODE_ENV === 'production' || !isExplicitDev;
+  const distPath = path.resolve(process.cwd(), 'dist');
+  let hasDist = fs.existsSync(path.resolve(distPath, 'index.html'));
 
-  if (!isProduction || !hasDist) {
+  // If in production or container deployment and dist is not yet built, build it synchronously
+  if (isProduction && !hasDist) {
+    try {
+      console.log('Building production bundle for deployment...');
+      execSync('npm run build', { stdio: 'inherit' });
+      hasDist = fs.existsSync(path.resolve(distPath, 'index.html'));
+      console.log('Production build ready:', hasDist);
+    } catch (buildErr) {
+      console.warn('Auto-build failed, fallback to dev server:', buildErr);
+    }
+  }
+
+  const shouldServeDist = (isProduction || !isExplicitDev) && hasDist;
+
+  if (shouldServeDist) {
+    // Serve static files in production / deployment
+    console.log('Serving production static bundle from:', distPath);
+    app.use(express.static(distPath));
+    app.use(express.static(path.resolve(process.cwd(), 'public')));
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api')) {
+        return next();
+      }
+      res.sendFile(path.resolve(distPath, 'index.html'));
+    });
+  } else {
+    // Development mode with Vite middleware
     try {
       const vite = await createViteServer({
         server: {
@@ -282,21 +311,33 @@ async function startServer() {
         appType: 'spa',
       });
       app.use(vite.middlewares);
+      app.use(express.static(path.resolve(process.cwd(), 'public')));
+      app.get('*', async (req, res, next) => {
+        if (req.path.startsWith('/api')) {
+          return next();
+        }
+        try {
+          const indexPath = path.resolve(process.cwd(), 'index.html');
+          let html = fs.readFileSync(indexPath, 'utf-8');
+          html = await vite.transformIndexHtml(req.originalUrl, html);
+          res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
+        } catch (viteHtmlErr) {
+          next(viteHtmlErr);
+        }
+      });
     } catch (err) {
       console.warn('Failed to start Vite middleware, falling back to static dist:', err);
       if (hasDist) {
-        app.use(express.static(path.resolve(process.cwd(), 'dist')));
-        app.get('*', (_req, res) => {
-          res.sendFile(path.resolve(process.cwd(), 'dist', 'index.html'));
+        app.use(express.static(distPath));
+        app.use(express.static(path.resolve(process.cwd(), 'public')));
+        app.get('*', (req, res, next) => {
+          if (req.path.startsWith('/api')) {
+            return next();
+          }
+          res.sendFile(path.resolve(distPath, 'index.html'));
         });
       }
     }
-  } else {
-    // Serve static files in production
-    app.use(express.static(path.resolve(process.cwd(), 'dist')));
-    app.get('*', (_req, res) => {
-      res.sendFile(path.resolve(process.cwd(), 'dist', 'index.html'));
-    });
   }
 
   app.listen(PORT, '0.0.0.0', () => {

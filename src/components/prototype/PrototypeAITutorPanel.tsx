@@ -171,7 +171,7 @@ export const PrototypeAITutorPanel: React.FC<PrototypeAITutorPanelProps> = ({
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-full overflow-hidden bg-cyan-50 border border-cyan-100 flex items-center justify-center shadow-xs">
             <img
-              src="/assets/prototype/tutor-robot.png"
+              src="./assets/prototype/tutor-robot.png"
               alt="AI Tutor Avatar"
               className="w-full h-full object-cover"
             />
@@ -203,7 +203,7 @@ export const PrototypeAITutorPanel: React.FC<PrototypeAITutorPanelProps> = ({
               {!isUser && (
                 <div className="w-7 h-7 rounded-full overflow-hidden bg-cyan-50 shrink-0 mt-0.5 border border-cyan-100">
                   <img
-                    src="/assets/prototype/tutor-robot.png"
+                    src="./assets/prototype/tutor-robot.png"
                     alt="Tutor"
                     className="w-full h-full object-cover"
                   />
@@ -227,7 +227,7 @@ export const PrototypeAITutorPanel: React.FC<PrototypeAITutorPanelProps> = ({
                   <div className="rounded-2xl overflow-hidden border border-slate-200/80 bg-slate-900 shadow-sm relative group">
                     <div className="relative aspect-[16/9] w-full overflow-hidden">
                       <img
-                        src="/assets/prototype/thumb-evaporation-anim.png"
+                        src="./assets/prototype/thumb-evaporation-anim.png"
                         alt="Animation Evaporation"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />

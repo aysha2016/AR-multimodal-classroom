@@ -207,12 +207,12 @@ const LESSON_CHAPTERS: Record<string, VideoChapter[]> = {
 };
 
 const LESSON_ARTWORK: Record<string, string> = {
-  'water-cycle': '/assets/prototype/classroom-hero.png?v=clean2',
-  'human-heart': '/assets/prototype/thumb-human-heart.png',
-  'solar-system': '/assets/prototype/thumb-solar-system.png',
-  'plant-cell': '/assets/prototype/thumb-plant-cell.png',
-  volcano: '/assets/prototype/thumb-volcano.png',
-  'electric-circuit': '/assets/prototype/thumb-electric-circuit.png',
+  'water-cycle': './assets/prototype/classroom-hero.png?v=clean2',
+  'human-heart': './assets/prototype/thumb-human-heart.png',
+  'solar-system': './assets/prototype/thumb-solar-system.png',
+  'plant-cell': './assets/prototype/thumb-plant-cell.png',
+  volcano: './assets/prototype/thumb-volcano.png',
+  'electric-circuit': './assets/prototype/thumb-electric-circuit.png',
 };
 
 export const AnimatedVideoScene: React.FC<AnimatedVideoSceneProps> = ({
@@ -778,7 +778,7 @@ export const AnimatedVideoScene: React.FC<AnimatedVideoSceneProps> = ({
       <div className="absolute inset-0 w-full h-full overflow-hidden">
         {/* Real Classroom Photo with Dr. Sarah Jenkins on left gesturing towards the presentation stage */}
         <img
-          src="/assets/prototype/classroom-hero.png?v=clean2"
+          src="./assets/prototype/classroom-hero.png?v=clean2"
           alt="Classroom Simulation"
           className="w-full h-full object-cover object-center transition-transform duration-700 ease-out"
         />

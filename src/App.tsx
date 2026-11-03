@@ -63,7 +63,7 @@ export default function App() {
     email: 'student@smartclass.ai',
     grade: 8,
     role: 'student',
-    avatar: '/assets/prototype/student-avatar.png',
+    avatar: './assets/prototype/student-avatar.png',
     streakDays: 8,
     completedLessons: ['water-cycle'],
     inProgressLessons: ['human-heart', 'solar-system'],

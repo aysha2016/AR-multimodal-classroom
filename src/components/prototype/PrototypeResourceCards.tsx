@@ -35,32 +35,32 @@ export const PrototypeResourceCards: React.FC<PrototypeResourceCardsProps> = ({
     {
       id: 'water-cycle',
       title: 'Water Cycle',
-      thumb: '/assets/prototype/thumb-water-cycle.png',
+      thumb: './assets/prototype/thumb-water-cycle.png',
     },
     {
       id: 'human-heart',
       title: 'Human Heart',
-      thumb: '/assets/prototype/thumb-human-heart.png',
+      thumb: './assets/prototype/thumb-human-heart.png',
     },
     {
       id: 'solar-system',
       title: 'Solar System',
-      thumb: '/assets/prototype/thumb-solar-system.png',
+      thumb: './assets/prototype/thumb-solar-system.png',
     },
     {
       id: 'plant-cell',
       title: 'Plant Cell',
-      thumb: '/assets/prototype/thumb-plant-cell.png',
+      thumb: './assets/prototype/thumb-plant-cell.png',
     },
     {
       id: 'volcano',
       title: 'Volcano',
-      thumb: '/assets/prototype/thumb-volcano.png',
+      thumb: './assets/prototype/thumb-volcano.png',
     },
     {
       id: 'electric-circuit',
       title: 'Electric Circuit',
-      thumb: '/assets/prototype/thumb-electric-circuit.png',
+      thumb: './assets/prototype/thumb-electric-circuit.png',
     },
   ];
 

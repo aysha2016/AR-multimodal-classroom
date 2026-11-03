@@ -10,7 +10,7 @@ export const TEACHER_AVATARS: TeacherAvatarConfig[] = [
     voiceName: 'Kore',
     bio: 'Former NASA Earth Observatory fellow and curriculum lead with 12 years of hands-on classroom experience.',
     specialty: 'Earth Systems, Planetary Dynamics & Physics',
-    avatarImage: '/assets/prototype/teacher-portrait.png',
+    avatarImage: './assets/prototype/teacher-portrait.png',
   },
   {
     id: 'marcus-vance',

@@ -320,7 +320,7 @@ export const RealisticEducatorAvatar: React.FC<RealisticEducatorAvatarProps> = (
 
             {/* LAYER 1: BASE PHOTOGRAPHIC EDUCATOR IMAGE */}
             <image
-              href={currentTeacher.avatarImage || '/assets/prototype/teacher-portrait.png'}
+              href={currentTeacher.avatarImage || './assets/prototype/teacher-portrait.png'}
               x="0"
               y="0"
               width="280"
@@ -465,7 +465,7 @@ export const RealisticEducatorAvatar: React.FC<RealisticEducatorAvatarProps> = (
               }}
             >
               <image
-                href={currentTeacher.avatarImage || '/assets/prototype/teacher-portrait.png'}
+                href={currentTeacher.avatarImage || './assets/prototype/teacher-portrait.png'}
                 x="0"
                 y="0"
                 width="280"
