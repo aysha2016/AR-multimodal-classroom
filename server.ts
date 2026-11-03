@@ -10,8 +10,8 @@ import { execSync } from 'child_process';
 dotenv.config();
 
 const app = express();
-// Per AI Studio runtime environment requirements, dev server listens on PORT (default 3000).
-const PORT = Number(process.env.PORT) || 3000;
+// Per AI Studio runtime environment, Nginx listens on 8080 and forwards to 3000. Server must bind 3000.
+const PORT = process.env.PORT && process.env.PORT !== '8080' ? Number(process.env.PORT) : 3000;
 
 // Ignore non-fatal WebSocket port conflicts if Vite HMR tries port 24678
 process.on('uncaughtException', (err: any) => {
