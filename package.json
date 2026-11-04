@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "NODE_ENV=development tsx server.ts",
-    "build": "node scripts/buildAudioAssets.cjs && vite build && cp dist/index.html dist/404.html && touch dist/.nojekyll && rm -rf docs && cp -r dist docs && touch docs/.nojekyll && touch .nojekyll",
+    "build": "node scripts/buildAudioAssets.cjs && vite build && cp dist/index.html dist/404.html && cp dist/index.html 404.html && touch dist/.nojekyll && rm -rf docs && cp -r dist docs && touch docs/.nojekyll && touch .nojekyll",
     "start": "node server.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",

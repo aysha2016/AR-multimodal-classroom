@@ -9,12 +9,65 @@
     <meta property="og:description" content="Premium Augmented Classroom with Realistic AI Avatar Teacher, 3D simulations, and adaptive tutoring." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Smart Path Normalizer & Trailing Slash Enforcer for GitHub Pages and Static Deployments -->
+    <script>
+      (function() {
+        try {
+          var path = window.location.pathname;
+          var host = window.location.hostname;
+          var isGitHub = host.includes('github.io');
+
+          if (isGitHub) {
+            // A. If source index.html is loaded from repository root (where /src/main.tsx cannot run directly),
+            // seamlessly redirect to the pre-compiled docs/ distribution bundle
+            var hasSourceScript = document.querySelector && document.querySelector('script[src*="main.tsx"]');
+            if (hasSourceScript && !path.includes('/docs')) {
+              var clean = path.replace(/\/+$/, '');
+              window.location.replace(window.location.origin + clean + '/docs/' + window.location.search + window.location.hash);
+              return;
+            }
+
+            // B. Enforce trailing slash on directory URLs so relative paths like "./assets/..." resolve correctly
+            if (path && !path.endsWith('/') && !path.split('/').pop().includes('.')) {
+              window.location.replace(window.location.origin + path + '/' + window.location.search + window.location.hash);
+              return;
+            }
+
+            // C. Dynamically set base tag if not present
+            var segments = path.split('/').filter(Boolean);
+            if (segments.length > 0 && !document.querySelector('base')) {
+              var repo = segments[0];
+              var baseHref = '/' + repo + '/';
+              if (segments[1] === 'docs') {
+                baseHref = '/' + repo + '/docs/';
+              }
+              var baseEl = document.createElement('base');
+              baseEl.href = baseHref;
+              document.head.prepend(baseEl);
+            }
+          }
+        } catch (e) {
+          console.warn('Path normalizer warning:', e);
+        }
+      })();
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   </head>
   <body class="bg-slate-50 text-slate-900 font-sans antialiased overflow-x-hidden selection:bg-blue-600 selection:text-white">
-    <div id="root"></div>
+    <div id="root">
+      <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #0b1120; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif;">
+        <div style="text-align: center; max-width: 380px; padding: 24px;">
+          <div style="width: 44px; height: 44px; border: 3px solid rgba(59,130,246,0.2); border-top-color: #3b82f6; border-radius: 50%; margin: 0 auto 16px; animation: smartClassSpin 0.8s linear infinite;"></div>
+          <style>@keyframes smartClassSpin { to { transform: rotate(360deg); } }</style>
+          <h2 style="font-size: 16px; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.01em;">SmartClass AI</h2>
+          <p style="font-size: 13px; color: #94a3b8; margin: 0;">Loading 3D classroom simulation and AI tutor...</p>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

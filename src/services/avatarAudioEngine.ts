@@ -870,7 +870,16 @@ class AvatarAudioEngine {
         this.audioCtx.resume().catch(() => {});
       }
 
-      const audio = new Audio(url);
+      let audioSrc = url;
+      if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+        try {
+          audioSrc = new URL(url, document.baseURI || window.location.href).href;
+        } catch (e) {
+          audioSrc = url;
+        }
+      }
+
+      const audio = new Audio(audioSrc);
       audio.crossOrigin = 'anonymous';
       audio.volume = 1.0;
       audio.muted = this.isMuted;
