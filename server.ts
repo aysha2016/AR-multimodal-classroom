@@ -334,7 +334,7 @@ async function startServer() {
           let html = fs.readFileSync(indexPath, 'utf-8');
           if (!html.includes('/src/main.tsx')) {
             html = html.replace(
-              /<script type="module" crossorigin src=".*?assets\/index-[^"]+\.js"><\/script>/,
+              /<script[^>]*assets\/index-[^>]*><\/script>/i,
               '<script type="module" src="/src/main.tsx"></script>'
             );
           }
