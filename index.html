@@ -10,45 +10,20 @@
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
 
-    <!-- Smart Path Normalizer & Trailing Slash Enforcer for GitHub Pages and Static Deployments -->
+    <!-- Trailing Slash Enforcer for GitHub Pages and Subfolder Deployments -->
     <script>
       (function() {
         try {
           var path = window.location.pathname;
           var host = window.location.hostname;
-          var isGitHub = host.includes('github.io');
-
-          if (isGitHub) {
-            // A. If source index.html is loaded from repository root (where /src/main.tsx cannot run directly),
-            // seamlessly redirect to the pre-compiled docs/ distribution bundle
-            var hasSourceScript = document.querySelector && document.querySelector('script[src*="main.tsx"]');
-            if (hasSourceScript && !path.includes('/docs')) {
-              var clean = path.replace(/\/+$/, '');
-              window.location.replace(window.location.origin + clean + '/docs/' + window.location.search + window.location.hash);
-              return;
-            }
-
-            // B. Enforce trailing slash on directory URLs so relative paths like "./assets/..." resolve correctly
+          if (host.includes('github.io')) {
+            // Enforce trailing slash on repository directory paths so relative assets './assets/...' resolve properly
             if (path && !path.endsWith('/') && !path.split('/').pop().includes('.')) {
               window.location.replace(window.location.origin + path + '/' + window.location.search + window.location.hash);
-              return;
-            }
-
-            // C. Dynamically set base tag if not present
-            var segments = path.split('/').filter(Boolean);
-            if (segments.length > 0 && !document.querySelector('base')) {
-              var repo = segments[0];
-              var baseHref = '/' + repo + '/';
-              if (segments[1] === 'docs') {
-                baseHref = '/' + repo + '/docs/';
-              }
-              var baseEl = document.createElement('base');
-              baseEl.href = baseHref;
-              document.head.prepend(baseEl);
             }
           }
         } catch (e) {
-          console.warn('Path normalizer warning:', e);
+          console.warn('Path check error:', e);
         }
       })();
     </script>

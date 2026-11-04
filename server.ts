@@ -24,6 +24,8 @@ process.on('uncaughtException', (err: any) => {
 
 app.use(express.json({ limit: '10mb' }));
 app.use('/assets/audio', express.static(path.resolve(process.cwd(), 'public/assets/audio')));
+app.use('/assets', express.static(path.resolve(process.cwd(), 'assets')));
+app.use('/assets', express.static(path.resolve(process.cwd(), 'dist/assets')));
 app.use(express.static(path.resolve(process.cwd(), 'public')));
 
 // Initialize Google GenAI client if GEMINI_API_KEY is provided
@@ -330,6 +332,12 @@ async function startServer() {
         try {
           const indexPath = path.resolve(process.cwd(), 'index.html');
           let html = fs.readFileSync(indexPath, 'utf-8');
+          if (!html.includes('/src/main.tsx')) {
+            html = html.replace(
+              /<script type="module" crossorigin src=".*?assets\/index-[^"]+\.js"><\/script>/,
+              '<script type="module" src="/src/main.tsx"></script>'
+            );
+          }
           html = await vite.transformIndexHtml(req.originalUrl, html);
           res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
         } catch (viteHtmlErr) {
