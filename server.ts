@@ -23,6 +23,8 @@ process.on('uncaughtException', (err: any) => {
 });
 
 app.use(express.json({ limit: '10mb' }));
+app.use('/assets/audio', express.static(path.resolve(process.cwd(), 'public/assets/audio')));
+app.use(express.static(path.resolve(process.cwd(), 'public')));
 
 // Initialize Google GenAI client if GEMINI_API_KEY is provided
 let aiClient: GoogleGenAI | null = null;

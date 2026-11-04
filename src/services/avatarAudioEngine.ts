@@ -1,4 +1,5 @@
 import { VisemeFrame, TeacherState } from '../types';
+import { findPreRecordedAudioUrl } from '../data/preRecordedAudio';
 
 export type VisemeCallback = (frame: VisemeFrame) => void;
 export type StateCallback = (state: TeacherState) => void;
@@ -177,13 +178,6 @@ class AvatarAudioEngine {
         if (window.speechSynthesis.paused) {
           window.speechSynthesis.resume();
         }
-        // Prime the browser SpeechSynthesis engine with a silent micro-utterance
-        // to establish user activation in Chromium / WebKit
-        const primer = new SpeechSynthesisUtterance(' ');
-        primer.volume = 0.01;
-        primer.rate = 10.0;
-        primer.lang = 'en-US';
-        window.speechSynthesis.speak(primer);
       } catch (e) {
         // ignore
       }
@@ -455,6 +449,14 @@ class AvatarAudioEngine {
     }
 
     const cacheKey = `${voiceName}:${cleanText}`;
+
+    // 0. Pre-recorded static MP3 speech audio:
+    // Plays real, loud, crystal-clear human educator audio with 100% reliability across all devices & static GitHub Pages
+    const preRecordedUrl = findPreRecordedAudioUrl(cleanText);
+    if (preRecordedUrl) {
+      this.playAudioUrl(preRecordedUrl, cleanText);
+      return;
+    }
 
     // 1. Immediate in-memory cached AudioBuffer playback if ready
     if (this.audioBufferCache.has(cacheKey)) {
@@ -863,6 +865,11 @@ class AvatarAudioEngine {
     }
 
     try {
+      this.initAudioContext();
+      if (this.audioCtx && this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume().catch(() => {});
+      }
+
       const audio = new Audio(url);
       audio.crossOrigin = 'anonymous';
       audio.volume = 1.0;
@@ -882,15 +889,20 @@ class AvatarAudioEngine {
         }
       };
 
-      audio.onerror = () => {
-        this.playAcousticSpeechFallback(text, this.currentVoiceName === 'Puck');
+      audio.onerror = (e) => {
+        console.warn('Audio URL playback error, falling back to browser speech:', e);
+        this.playBrowserSpeech(text, this.currentVoiceName, this.currentVoiceName === 'Puck');
       };
 
-      audio.play().catch(() => {
-        this.playAcousticSpeechFallback(text, this.currentVoiceName === 'Puck');
-      });
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn('Audio play() error, falling back:', err);
+          this.playBrowserSpeech(text, this.currentVoiceName, this.currentVoiceName === 'Puck');
+        });
+      }
     } catch (e) {
-      this.playAcousticSpeechFallback(text, this.currentVoiceName === 'Puck');
+      this.playBrowserSpeech(text, this.currentVoiceName, this.currentVoiceName === 'Puck');
     }
   }
 
@@ -904,12 +916,9 @@ class AvatarAudioEngine {
     // 1. Play audible 3-tone chime immediately
     this.playActivationChime([523.25, 659.25, 783.99], 0.25);
 
-    // 2. Teacher speaks clearly
+    // 2. Teacher speaks clearly via pre-recorded audio
     setTimeout(() => {
-      this.speak(
-        'Welcome to SmartClass AI! Educator audio and real-time lip sync are working perfectly for your lesson.',
-        voiceName
-      );
+      this.speak('sound-test', voiceName);
     }, 280);
   }
 

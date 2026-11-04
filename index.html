@@ -16,20 +16,5 @@
   <body class="bg-slate-50 text-slate-900 font-sans antialiased overflow-x-hidden selection:bg-blue-600 selection:text-white">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <script>
-      // Fallback for static GitHub Pages branch deployments (when repository root / is served unbuilt)
-      (function() {
-        if (typeof window !== 'undefined' && window.location.hostname.endsWith('github.io') && !window.location.pathname.includes('/dist')) {
-          var scripts = document.getElementsByTagName('script');
-          for (var i = 0; i < scripts.length; i++) {
-            if (scripts[i].src && scripts[i].src.indexOf('main.tsx') !== -1) {
-              var repoBase = window.location.pathname.replace(/\/+$/, '');
-              window.location.replace(repoBase + '/dist/' + window.location.search + window.location.hash);
-              break;
-            }
-          }
-        }
-      })();
-    </script>
   </body>
 </html>
